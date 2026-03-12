@@ -1,26 +1,160 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: #000000;
+  --color-foreground: #f0ede6;
+  --color-accent: #c8ff00;
+  --color-muted: #5a5a5a;
+  --color-card: #0a0a0a;
+  --color-border: #1a1a1a;
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-body);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #000;
+  color: #f0ede6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(200, 255, 0, 0.25);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(200, 255, 0, 0.3);
+  border-radius: 10px;
+}
+
+/* Noise grain overlay */
+.grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Accent rule line */
+.rule-accent {
+  width: 40px;
+  height: 1px;
+  background: #c8ff00;
+}
+
+/* Glow effect */
+.glow-accent {
+  box-shadow: 0 0 60px rgba(200, 255, 0, 0.08), 0 0 120px rgba(200, 255, 0, 0.04);
+}
+
+/* Feature card hover */
+.feature-card {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.5s ease;
+}
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(200, 255, 0, 0.2);
+}
+
+/* Color swatch hover */
+.color-swatch {
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s ease;
+}
+.color-swatch:hover {
+  transform: scale(1.03);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* Spec row hover */
+.spec-row {
+  transition: background 0.3s ease, padding-left 0.3s ease;
+}
+.spec-row:hover {
+  background: rgba(200, 255, 0, 0.03);
+  padding-left: 8px;
+}
+
+/* Text glow for readability on transparent sections */
+.text-glow {
+  text-shadow: 0 2px 40px rgba(0, 0, 0, 0.8), 0 0 80px rgba(0, 0, 0, 0.4);
+}
+
+/* Frosted glass card */
+.glass-card {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Loading bar animation */
+@keyframes loading-slide {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+.loading-bar {
+  animation: loading-slide 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Page entrance animation */
+@keyframes fade-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.page-enter {
+  animation: fade-up-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.page-fade {
+  animation: fade-in 1.2s ease forwards;
+}
+
+/* Loader exit */
+@keyframes loader-exit {
+  0% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; pointer-events: none; }
+}
+.loader-exit {
+  animation: loader-exit 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* On mobile, content sections get subtle frosted overlay since model stays centered */
+@media (max-width: 767px) {
+  #content-sections section,
+  #rotate-zone,
+  #features-section {
+    background: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
 }
