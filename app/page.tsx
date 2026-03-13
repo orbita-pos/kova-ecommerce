@@ -60,51 +60,38 @@ const SPECS: [string, string][] = [
   ["Water resistance", "IPX4"],
 ];
 
-/* ─── 3D Headphones ─── */
+/* ─── 3D Headphones (Desktop — scroll-driven) ─── */
 function Headphones({
   scrollProgress,
   offsetX,
   targetColor,
-  mobileScale,
-  useDraco,
 }: {
   scrollProgress: React.MutableRefObject<number>;
   offsetX: React.MutableRefObject<number>;
   targetColor: string;
-  mobileScale: number;
-  useDraco: boolean;
 }) {
-  const { scene } = useGLTF(
-    useDraco ? "/model-draco.glb" : "/model.glb",
-    useDraco
-  );
+  const { scene } = useGLTF("/model.glb");
   const groupRef = useRef<THREE.Group>(null);
   const { camera } = useThree();
   const materialsRef = useRef<THREE.MeshStandardMaterial[]>([]);
   const colorTarget = useRef(new THREE.Color(targetColor));
   const currentPosX = useRef(0);
-  const frameCount = useRef(0);
 
   useEffect(() => {
-    /* Center model */
     const box = new THREE.Box3().setFromObject(scene);
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     scene.position.sub(center);
 
     const maxDim = Math.max(size.x, size.y, size.z);
-    /* Push camera back more on mobile so model appears smaller */
-    const zoomOut = maxDim * 2.2 * (1 / mobileScale);
-    (camera as THREE.PerspectiveCamera).position.set(0, 0, zoomOut);
+    (camera as THREE.PerspectiveCamera).position.set(0, 0, maxDim * 2.2);
     camera.lookAt(0, 0, 0);
 
-    /* Collect all materials for color changing */
     const mats: THREE.MeshStandardMaterial[] = [];
     scene.traverse((child) => {
       if (child instanceof THREE.Mesh && child.material) {
         const mat = child.material as THREE.MeshStandardMaterial;
         if (mat.isMeshStandardMaterial) {
-          /* Clone material so each mesh is independent */
           const cloned = mat.clone();
           child.material = cloned;
           mats.push(cloned);
@@ -112,40 +99,22 @@ function Headphones({
       }
     });
     materialsRef.current = mats;
-  }, [scene, camera, mobileScale]);
+  }, [scene, camera]);
 
-  /* Update target color when prop changes */
   useEffect(() => {
     colorTarget.current.set(targetColor);
   }, [targetColor]);
 
-  useFrame(({ invalidate }) => {
+  useFrame(() => {
     if (!groupRef.current) return;
-
-    /* Throttle to ~30fps on mobile */
-    if (mobileScale < 1) {
-      frameCount.current++;
-      if (frameCount.current % 2 !== 0) return;
-    }
-
-    /* Rotation from scroll */
     const targetY = scrollProgress.current * Math.PI * 2;
     groupRef.current.rotation.y += (targetY - groupRef.current.rotation.y) * 0.1;
-
-    /* Horizontal offset (center → right) */
     currentPosX.current += (offsetX.current - currentPosX.current) * 0.05;
     groupRef.current.position.x = currentPosX.current;
-
-    /* Subtle float */
     groupRef.current.position.y = Math.sin(Date.now() * 0.001) * 0.02;
-
-    /* Smooth color transition on materials */
     materialsRef.current.forEach((mat) => {
       mat.color.lerp(colorTarget.current, 0.04);
     });
-
-    /* Keep rendering when in demand mode (mobile) */
-    invalidate();
   });
 
   return (
@@ -153,6 +122,66 @@ function Headphones({
       <primitive object={scene} />
     </group>
   );
+}
+
+/* ─── 3D Headphones (Mobile device — simple auto-rotate) ─── */
+function MobileHeadphones({ targetColor }: { targetColor: string }) {
+  const { scene } = useGLTF("/model-draco.glb", true);
+  const groupRef = useRef<THREE.Group>(null);
+  const clonedScene = useRef<THREE.Group | null>(null);
+  const materialsRef = useRef<THREE.MeshStandardMaterial[]>([]);
+  const colorTarget = useRef(new THREE.Color(targetColor));
+  const { camera } = useThree();
+
+  useEffect(() => {
+    const clone = scene.clone(true);
+    clonedScene.current = clone;
+
+    const box = new THREE.Box3().setFromObject(clone);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    clone.position.sub(center);
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+    (camera as THREE.PerspectiveCamera).position.set(0, 0, maxDim * 2.4);
+    camera.lookAt(0, 0, 0);
+
+    const mats: THREE.MeshStandardMaterial[] = [];
+    clone.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material) {
+        const mat = child.material as THREE.MeshStandardMaterial;
+        if (mat.isMeshStandardMaterial) {
+          const cloned = mat.clone();
+          cloned.color.set(targetColor);
+          child.material = cloned;
+          mats.push(cloned);
+        }
+      }
+    });
+    materialsRef.current = mats;
+
+    if (groupRef.current) {
+      while (groupRef.current.children.length) {
+        groupRef.current.remove(groupRef.current.children[0]);
+      }
+      groupRef.current.add(clone);
+    }
+  }, [scene, camera, targetColor]);
+
+  useEffect(() => {
+    colorTarget.current.set(targetColor);
+  }, [targetColor]);
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    groupRef.current.rotation.y += delta * 0.3;
+    groupRef.current.position.y = Math.sin(Date.now() * 0.001) * 0.015;
+    materialsRef.current.forEach((mat) => {
+      mat.color.lerp(colorTarget.current, 0.06);
+    });
+  });
+
+  return <group ref={groupRef} />;
 }
 
 /* ─── Loader ─── */
@@ -172,12 +201,15 @@ export default function Page() {
   const [ready, setReady] = useState(false);
   const [navSolid, setNavSolid] = useState(false);
   const [activeColor, setActiveColor] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("kova-color");
     if (saved !== null) setActiveColor(Number(saved));
-    setIsMobile(window.innerWidth < 768);
+    /* Detect actual mobile device, not just small screen */
+    const isTouchDevice = navigator.maxTouchPoints > 0;
+    const isMobileUA = /Android|iPhone|iPad|iPod|webOS|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent);
+    setIsMobileDevice(isTouchDevice && isMobileUA);
   }, []);
 
   const handleColorChange = useCallback((index: number) => {
@@ -188,53 +220,53 @@ export default function Page() {
   const handleReady = useCallback(() => setReady(true), []);
 
   useEffect(() => {
-    /* ── Scroll rotation ── */
-    ScrollTrigger.create({
-      trigger: "#scroll-driver",
-      start: "top top",
-      end: "bottom bottom",
-      scrub: 0.3,
-      onUpdate: (self) => {
-        scrollProgress.current = self.progress;
-      },
-    });
+    /* Skip scroll-driven 3D on mobile devices */
+    if (!isMobileDevice) {
+      /* ── Scroll rotation ── */
+      ScrollTrigger.create({
+        trigger: "#scroll-driver",
+        start: "top top",
+        end: "bottom bottom",
+        scrub: 0.3,
+        onUpdate: (self) => {
+          scrollProgress.current = self.progress;
+        },
+      });
 
-    /* ── Model slides right starting at rotate-zone: 0 → 1.8 (desktop only) ── */
-    ScrollTrigger.create({
-      trigger: "#rotate-zone",
-      start: "top 90%",
-      end: "top 30%",
-      scrub: true,
-      onUpdate: (self) => {
-        const isMobile = window.innerWidth < 768;
-        modelOffsetX.current = isMobile ? 0 : self.progress * 2.8;
-      },
-    });
-
-    /* ── Model returns to center at CTA: 2.8 → 0 ── */
-    ScrollTrigger.create({
-      trigger: "#cta-section",
-      start: "top 90%",
-      end: "top 40%",
-      scrub: true,
-      onUpdate: (self) => {
-        const isMobile = window.innerWidth < 768;
-        if (isMobile) return;
-        modelOffsetX.current = 2.8 - self.progress * 2.8;
-      },
-    });
-
-    /* ── Fade hero ── */
-    gsap.to("#hero-text", {
-      opacity: 0,
-      y: -60,
-      scrollTrigger: {
+      /* ── Model slides right at rotate-zone: 0 → 2.8 ── */
+      ScrollTrigger.create({
         trigger: "#rotate-zone",
-        start: "top 80%",
+        start: "top 90%",
         end: "top 30%",
         scrub: true,
-      },
-    });
+        onUpdate: (self) => {
+          modelOffsetX.current = self.progress * 2.8;
+        },
+      });
+
+      /* ── Model returns to center at CTA: 2.8 → 0 ── */
+      ScrollTrigger.create({
+        trigger: "#cta-section",
+        start: "top 90%",
+        end: "top 40%",
+        scrub: true,
+        onUpdate: (self) => {
+          modelOffsetX.current = 2.8 - self.progress * 2.8;
+        },
+      });
+
+      /* ── Fade hero ── */
+      gsap.to("#hero-text", {
+        opacity: 0,
+        y: -60,
+        scrollTrigger: {
+          trigger: "#rotate-zone",
+          start: "top 80%",
+          end: "top 30%",
+          scrub: true,
+        },
+      });
+    }
 
     /* ── Tagline ── */
     gsap.fromTo("#tagline", { opacity: 0, y: 80 }, {
@@ -284,7 +316,7 @@ export default function Page() {
       ScrollTrigger.getAll().forEach((t) => t.kill());
       window.removeEventListener("scroll", onScroll);
     };
-  }, []);
+  }, [isMobileDevice]);
 
   return (
     <main>
@@ -335,43 +367,35 @@ export default function Page() {
         </div>
       </nav>
 
-      {/* ── Three.js Scene ── */}
-      <div className="fixed inset-0 z-10" role="img" aria-label="3D interactive KOVA headphones model rotating as you scroll">
-        <Canvas
-          gl={{ antialias: !isMobile, alpha: true, powerPreference: "high-performance" }}
-          dpr={isMobile ? [1, 1] : [1, 2]}
-          camera={{ fov: 35, near: 0.1, far: 100 }}
-          frameloop={isMobile ? "demand" : "always"}
-        >
-          <Suspense fallback={null}>
-            <Headphones
-              scrollProgress={scrollProgress}
-              offsetX={modelOffsetX}
-              targetColor={COLOR_OPTIONS[activeColor].hex}
-              mobileScale={isMobile ? 0.65 : 1}
-              useDraco={isMobile}
-            />
-            {isMobile ? (
-              /* Lightweight lighting for mobile — no HDR cubemap */
-              <hemisphereLight intensity={0.8} color="#ffffff" groundColor="#333333" />
-            ) : (
-              <>
-                <Environment preset="city" />
-                <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />
-              </>
-            )}
-            <Loader onReady={handleReady} />
-          </Suspense>
-          <ambientLight intensity={0.3} />
-          <directionalLight position={[5, 5, 5]} intensity={0.8} />
-          {!isMobile && <directionalLight position={[-3, 2, -2]} intensity={0.3} color="#c8ff00" />}
-        </Canvas>
-      </div>
+      {/* ── Three.js Scene (Desktop: fixed fullscreen / Mobile device: contained in hero) ── */}
+      {!isMobileDevice && (
+        <div className="fixed inset-0 z-10" role="img" aria-label="3D interactive KOVA headphones model rotating as you scroll">
+          <Canvas
+            gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+            dpr={[1, 2]}
+            camera={{ fov: 35, near: 0.1, far: 100 }}
+          >
+            <Suspense fallback={null}>
+              <Headphones
+                scrollProgress={scrollProgress}
+                offsetX={modelOffsetX}
+                targetColor={COLOR_OPTIONS[activeColor].hex}
+              />
+              <Environment preset="city" />
+              <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />
+              <Loader onReady={handleReady} />
+            </Suspense>
+            <ambientLight intensity={0.3} />
+            <directionalLight position={[5, 5, 5]} intensity={0.8} />
+            <directionalLight position={[-3, 2, -2]} intensity={0.3} color="#c8ff00" />
+          </Canvas>
+        </div>
+      )}
 
       {/* ── Scroll driver (hero + rotate + features) ── */}
       <div id="scroll-driver">
         {/* Hero */}
-        <section className="relative z-20 flex h-screen flex-col items-center justify-center">
+        <section className="relative z-20 flex min-h-screen flex-col items-center justify-center">
           <div id="hero-text" className={`text-center ${ready ? "page-enter" : "opacity-0"}`} style={{ padding: "0 clamp(24px, 5vw, 80px)", animationDelay: "0.3s" }}>
             <div className="mb-6 flex items-center justify-center gap-4">
               <div className="rule-accent" />
@@ -387,19 +411,46 @@ export default function Page() {
               IMMERSIVE SOUND — PURE SILENCE
             </p>
           </div>
-          <div className={`absolute bottom-10 flex flex-col items-center gap-3 ${ready ? "page-fade" : "opacity-0"}`} style={{ animationDelay: "0.8s" }}>
-            <span className="font-[family-name:var(--font-body)] text-[9px] uppercase tracking-[0.3em] text-white/50">
-              Scroll
-            </span>
-            <div className="relative h-10 w-px">
-              <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-[#c8ff00]/50 to-transparent" />
+
+          {/* Mobile device: contained 3D model in hero */}
+          {isMobileDevice && (
+            <div className="relative mt-4 h-[45vh] w-full" role="img" aria-label="3D KOVA headphones model">
+              <Canvas
+                gl={{ antialias: false, alpha: true, powerPreference: "low-power" }}
+                dpr={[1, 1]}
+                camera={{ fov: 30, near: 0.1, far: 100 }}
+              >
+                <Suspense fallback={null}>
+                  <MobileHeadphones targetColor={COLOR_OPTIONS[activeColor].hex} />
+                  <Loader onReady={handleReady} />
+                </Suspense>
+                <ambientLight intensity={0.5} />
+                <hemisphereLight intensity={0.6} color="#ffffff" groundColor="#333333" />
+                <directionalLight position={[5, 5, 5]} intensity={0.7} />
+              </Canvas>
+              {/* Glow under model */}
+              <div
+                className="pointer-events-none absolute bottom-0 left-1/2 h-16 w-2/3 -translate-x-1/2 blur-3xl"
+                style={{ background: `radial-gradient(ellipse, ${COLOR_OPTIONS[activeColor].accent}30, transparent 70%)` }}
+              />
             </div>
-          </div>
+          )}
+
+          {!isMobileDevice && (
+            <div className={`absolute bottom-10 flex flex-col items-center gap-3 ${ready ? "page-fade" : "opacity-0"}`} style={{ animationDelay: "0.8s" }}>
+              <span className="font-[family-name:var(--font-body)] text-[9px] uppercase tracking-[0.3em] text-white/50">
+                Scroll
+              </span>
+              <div className="relative h-10 w-px">
+                <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-[#c8ff00]/50 to-transparent" />
+              </div>
+            </div>
+          )}
         </section>
 
-        {/* Rotate zone — Strategy A: transparent, no gradient bg */}
-        <section id="rotate-zone" className="relative" style={{ height: "200vh" }}>
-          <div className="sticky top-0 flex h-screen items-center" style={{ padding: "0 clamp(24px, 5vw, 80px)" }}>
+        {/* Rotate zone */}
+        <section id="rotate-zone" className="relative" style={{ height: isMobileDevice ? "auto" : "200vh" }}>
+          <div className={isMobileDevice ? "py-20" : "sticky top-0 flex h-screen items-center"} style={{ padding: isMobileDevice ? "clamp(48px, 8vh, 80px) clamp(24px, 5vw, 80px)" : "0 clamp(24px, 5vw, 80px)" }}>
             <div className="relative z-20 grid w-full grid-cols-1 md:grid-cols-[55fr_45fr]">
               <div>
                 <h2
@@ -419,15 +470,15 @@ export default function Page() {
                   every note, every beat, every silence.
                 </p>
               </div>
-              {/* Right column intentionally empty — model lives here */}
+              {/* Right column intentionally empty — model lives here on desktop */}
               <div className="hidden md:block" />
             </div>
           </div>
         </section>
 
-        {/* Features — full-width cards, lower opacity */}
-        <section id="features-section" className="relative" style={{ height: "150vh" }}>
-          <div id="sound" className="sticky top-0 flex h-screen items-end" style={{ padding: "0 clamp(24px, 5vw, 80px) clamp(40px, 5vh, 96px)" }}>
+        {/* Features */}
+        <section id="features-section" className="relative" style={{ height: isMobileDevice ? "auto" : "150vh" }}>
+          <div id="sound" className={isMobileDevice ? "py-12" : "sticky top-0 flex h-screen items-end"} style={{ padding: isMobileDevice ? "0 clamp(24px, 5vw, 80px)" : "0 clamp(24px, 5vw, 80px) clamp(40px, 5vh, 96px)" }}>
             <div id="features-grid" className="relative z-20 flex w-full md:max-w-[50%] flex-col">
               {FEATURES.map((f, i) => (
                 <div key={f.title} className={`feature-card group py-8 ${i !== FEATURES.length - 1 ? "border-b border-white/[0.06]" : ""}`}>
