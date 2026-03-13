@@ -391,7 +391,7 @@ export default function Page() {
       )}
 
       {/* ── Scroll driver (hero + rotate + features) ── */}
-      <div id="scroll-driver">
+      <div id="scroll-driver" className="relative z-20 md:z-auto">
         {/* Hero */}
         <section className="relative z-20 flex min-h-screen flex-col items-center justify-center">
           <div id="hero-text" className={`text-center ${ready ? "page-enter" : "opacity-0"}`} style={{ padding: "0 clamp(24px, 5vw, 80px)", animationDelay: "0.3s" }}>
@@ -422,9 +422,10 @@ export default function Page() {
                   <MobileHeadphones targetColor={COLOR_OPTIONS[activeColor].hex} />
                   <Loader onReady={handleReady} />
                 </Suspense>
-                <ambientLight intensity={0.5} />
-                <hemisphereLight intensity={0.6} color="#ffffff" groundColor="#333333" />
-                <directionalLight position={[5, 5, 5]} intensity={0.7} />
+                <ambientLight intensity={1.2} />
+                <hemisphereLight intensity={1.0} color="#ffffff" groundColor="#555555" />
+                <directionalLight position={[5, 5, 5]} intensity={1.2} />
+                <directionalLight position={[-3, 3, -2]} intensity={0.5} color="#c8ff00" />
               </Canvas>
               {/* Glow under model */}
               <div
@@ -495,7 +496,7 @@ export default function Page() {
       </div>
 
       {/* ══════════ Content sections ══════════ */}
-      <div id="content-sections">
+      <div id="content-sections" className="relative z-20 md:z-auto">
 
         {/* ── Stats — Strategy A: transparent, no gradient ── */}
         <section
