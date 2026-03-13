@@ -66,18 +66,24 @@ function Headphones({
   offsetX,
   targetColor,
   mobileScale,
+  useDraco,
 }: {
   scrollProgress: React.MutableRefObject<number>;
   offsetX: React.MutableRefObject<number>;
   targetColor: string;
   mobileScale: number;
+  useDraco: boolean;
 }) {
-  const { scene } = useGLTF("/model.glb");
+  const { scene } = useGLTF(
+    useDraco ? "/model-draco.glb" : "/model.glb",
+    useDraco
+  );
   const groupRef = useRef<THREE.Group>(null);
   const { camera } = useThree();
   const materialsRef = useRef<THREE.MeshStandardMaterial[]>([]);
   const colorTarget = useRef(new THREE.Color(targetColor));
   const currentPosX = useRef(0);
+  const frameCount = useRef(0);
 
   useEffect(() => {
     /* Center model */
@@ -115,6 +121,12 @@ function Headphones({
 
   useFrame(({ invalidate }) => {
     if (!groupRef.current) return;
+
+    /* Throttle to ~30fps on mobile */
+    if (mobileScale < 1) {
+      frameCount.current++;
+      if (frameCount.current % 2 !== 0) return;
+    }
 
     /* Rotation from scroll */
     const targetY = scrollProgress.current * Math.PI * 2;
@@ -337,9 +349,17 @@ export default function Page() {
               offsetX={modelOffsetX}
               targetColor={COLOR_OPTIONS[activeColor].hex}
               mobileScale={isMobile ? 0.65 : 1}
+              useDraco={isMobile}
             />
-            <Environment preset="city" />
-            {!isMobile && <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />}
+            {isMobile ? (
+              /* Lightweight lighting for mobile — no HDR cubemap */
+              <hemisphereLight intensity={0.8} color="#ffffff" groundColor="#333333" />
+            ) : (
+              <>
+                <Environment preset="city" />
+                <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />
+              </>
+            )}
             <Loader onReady={handleReady} />
           </Suspense>
           <ambientLight intensity={0.3} />
