@@ -269,8 +269,13 @@ export default function Page() {
       });
     }
 
-    /* ── Scroll-triggered entrance animations (desktop only) ── */
-    if (!isMobileDevice) {
+    /* ── Scroll-triggered entrance animations ── */
+    if (isMobileDevice) {
+      /* On mobile devices, just make everything visible immediately (no animations) */
+      gsap.set("#tagline, #tagline-sub, .feature-card, .stat-item, #color-heading, .spec-row, #cta-inner", {
+        opacity: 1, y: 0, x: 0, scale: 1,
+      });
+    } else {
       gsap.fromTo("#tagline", { opacity: 0, y: 80 }, {
         opacity: 1, y: 0, duration: 1.2, ease: "power3.out",
         scrollTrigger: { trigger: "#tagline", start: "top 85%" },
@@ -362,7 +367,7 @@ export default function Page() {
 
       {/* ── Three.js Scene (Desktop: fixed fullscreen / Mobile device: contained in hero) ── */}
       {!isMobileDevice && (
-        <div className="fixed inset-0 z-10" role="img" aria-label="3D interactive KOVA headphones model rotating as you scroll">
+        <div className="fixed inset-0 z-0 md:z-10" role="img" aria-label="3D interactive KOVA headphones model rotating as you scroll">
           <Canvas
             gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
             dpr={[1, 2]}
