@@ -65,10 +65,12 @@ function Headphones({
   scrollProgress,
   offsetX,
   targetColor,
+  mobileScale,
 }: {
   scrollProgress: React.MutableRefObject<number>;
   offsetX: React.MutableRefObject<number>;
   targetColor: string;
+  mobileScale: number;
 }) {
   const { scene } = useGLTF("/model.glb");
   const groupRef = useRef<THREE.Group>(null);
@@ -85,7 +87,9 @@ function Headphones({
     scene.position.sub(center);
 
     const maxDim = Math.max(size.x, size.y, size.z);
-    (camera as THREE.PerspectiveCamera).position.set(0, 0, maxDim * 2.2);
+    /* Push camera back more on mobile so model appears smaller */
+    const zoomOut = maxDim * 2.2 * (1 / mobileScale);
+    (camera as THREE.PerspectiveCamera).position.set(0, 0, zoomOut);
     camera.lookAt(0, 0, 0);
 
     /* Collect all materials for color changing */
@@ -102,14 +106,14 @@ function Headphones({
       }
     });
     materialsRef.current = mats;
-  }, [scene, camera]);
+  }, [scene, camera, mobileScale]);
 
   /* Update target color when prop changes */
   useEffect(() => {
     colorTarget.current.set(targetColor);
   }, [targetColor]);
 
-  useFrame(() => {
+  useFrame(({ invalidate }) => {
     if (!groupRef.current) return;
 
     /* Rotation from scroll */
@@ -127,6 +131,9 @@ function Headphones({
     materialsRef.current.forEach((mat) => {
       mat.color.lerp(colorTarget.current, 0.04);
     });
+
+    /* Keep rendering when in demand mode (mobile) */
+    invalidate();
   });
 
   return (
@@ -153,10 +160,12 @@ export default function Page() {
   const [ready, setReady] = useState(false);
   const [navSolid, setNavSolid] = useState(false);
   const [activeColor, setActiveColor] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("kova-color");
     if (saved !== null) setActiveColor(Number(saved));
+    setIsMobile(window.innerWidth < 768);
   }, []);
 
   const handleColorChange = useCallback((index: number) => {
@@ -317,23 +326,25 @@ export default function Page() {
       {/* ── Three.js Scene ── */}
       <div className="fixed inset-0 z-10" role="img" aria-label="3D interactive KOVA headphones model rotating as you scroll">
         <Canvas
-          gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-          dpr={[1, 2]}
+          gl={{ antialias: !isMobile, alpha: true, powerPreference: "high-performance" }}
+          dpr={isMobile ? [1, 1] : [1, 2]}
           camera={{ fov: 35, near: 0.1, far: 100 }}
+          frameloop={isMobile ? "demand" : "always"}
         >
           <Suspense fallback={null}>
             <Headphones
               scrollProgress={scrollProgress}
               offsetX={modelOffsetX}
               targetColor={COLOR_OPTIONS[activeColor].hex}
+              mobileScale={isMobile ? 0.65 : 1}
             />
             <Environment preset="city" />
-            <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />
+            {!isMobile && <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />}
             <Loader onReady={handleReady} />
           </Suspense>
           <ambientLight intensity={0.3} />
           <directionalLight position={[5, 5, 5]} intensity={0.8} />
-          <directionalLight position={[-3, 2, -2]} intensity={0.3} color="#c8ff00" />
+          {!isMobile && <directionalLight position={[-3, 2, -2]} intensity={0.3} color="#c8ff00" />}
         </Canvas>
       </div>
 
