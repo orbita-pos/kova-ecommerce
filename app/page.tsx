@@ -125,7 +125,7 @@ function Headphones({
 }
 
 /* ─── 3D Headphones (Mobile device — simple auto-rotate) ─── */
-function MobileHeadphones({ targetColor }: { targetColor: string }) {
+function MobileHeadphones({ targetColor, visible }: { targetColor: string; visible: boolean }) {
   const { scene } = useGLTF("/model-draco.glb", true);
   const groupRef = useRef<THREE.Group>(null);
   const clonedScene = useRef<THREE.Group | null>(null);
@@ -153,6 +153,9 @@ function MobileHeadphones({ targetColor }: { targetColor: string }) {
         if (mat.isMeshStandardMaterial) {
           const cloned = mat.clone();
           cloned.color.set(targetColor);
+          /* Boost brightness with emissive */
+          cloned.emissive = new THREE.Color(targetColor);
+          cloned.emissiveIntensity = 0.15;
           child.material = cloned;
           mats.push(cloned);
         }
@@ -173,11 +176,11 @@ function MobileHeadphones({ targetColor }: { targetColor: string }) {
   }, [targetColor]);
 
   useFrame((_, delta) => {
-    if (!groupRef.current) return;
+    if (!groupRef.current || !visible) return;
     groupRef.current.rotation.y += delta * 0.3;
-    groupRef.current.position.y = Math.sin(Date.now() * 0.001) * 0.015;
     materialsRef.current.forEach((mat) => {
       mat.color.lerp(colorTarget.current, 0.06);
+      mat.emissive.lerp(colorTarget.current, 0.06);
     });
   });
 
@@ -202,6 +205,8 @@ export default function Page() {
   const [navSolid, setNavSolid] = useState(false);
   const [activeColor, setActiveColor] = useState(0);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [modelVisible, setModelVisible] = useState(true);
+  const mobileCanvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("kova-color");
@@ -211,6 +216,17 @@ export default function Page() {
     const isMobileUA = /Android|iPhone|iPad|iPod|webOS|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent);
     setIsMobileDevice(isTouchDevice && isMobileUA);
   }, []);
+
+  /* Pause mobile canvas rendering when scrolled out of view */
+  useEffect(() => {
+    if (!isMobileDevice || !mobileCanvasRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setModelVisible(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    observer.observe(mobileCanvasRef.current);
+    return () => observer.disconnect();
+  }, [isMobileDevice, ready]);
 
   const handleColorChange = useCallback((index: number) => {
     setActiveColor(index);
@@ -412,20 +428,22 @@ export default function Page() {
 
           {/* Mobile device: contained 3D model in hero */}
           {isMobileDevice && (
-            <div className="relative mt-4 h-[45vh] w-full" role="img" aria-label="3D KOVA headphones model">
+            <div ref={mobileCanvasRef} className="relative mt-4 h-[45vh] w-full" role="img" aria-label="3D KOVA headphones model">
               <Canvas
                 gl={{ antialias: false, alpha: true, powerPreference: "low-power" }}
                 dpr={[1, 1]}
                 camera={{ fov: 30, near: 0.1, far: 100 }}
+                frameloop={modelVisible ? "always" : "never"}
               >
                 <Suspense fallback={null}>
-                  <MobileHeadphones targetColor={COLOR_OPTIONS[activeColor].hex} />
+                  <MobileHeadphones targetColor={COLOR_OPTIONS[activeColor].hex} visible={modelVisible} />
                   <Loader onReady={handleReady} />
                 </Suspense>
-                <ambientLight intensity={1.2} />
-                <hemisphereLight intensity={1.0} color="#ffffff" groundColor="#555555" />
-                <directionalLight position={[5, 5, 5]} intensity={1.2} />
-                <directionalLight position={[-3, 3, -2]} intensity={0.5} color="#c8ff00" />
+                <ambientLight intensity={2} />
+                <hemisphereLight intensity={1.5} color="#ffffff" groundColor="#666666" />
+                <directionalLight position={[5, 5, 5]} intensity={1.8} />
+                <directionalLight position={[-4, 3, -2]} intensity={0.8} color="#c8ff00" />
+                <directionalLight position={[0, -2, 4]} intensity={0.6} color="#ffffff" />
               </Canvas>
               {/* Glow under model */}
               <div
