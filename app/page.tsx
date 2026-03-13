@@ -233,14 +233,14 @@ export default function Page() {
         },
       });
 
-      /* ── Model slides right at rotate-zone: 0 → 2.8 ── */
+      /* ── Model slides right at rotate-zone: 0 → 2.8 (wide screens only) ── */
       ScrollTrigger.create({
         trigger: "#rotate-zone",
         start: "top 90%",
         end: "top 30%",
         scrub: true,
         onUpdate: (self) => {
-          modelOffsetX.current = self.progress * 2.8;
+          modelOffsetX.current = window.innerWidth < 768 ? 0 : self.progress * 2.8;
         },
       });
 
@@ -251,6 +251,7 @@ export default function Page() {
         end: "top 40%",
         scrub: true,
         onUpdate: (self) => {
+          if (window.innerWidth < 768) return;
           modelOffsetX.current = 2.8 - self.progress * 2.8;
         },
       });
@@ -268,45 +269,37 @@ export default function Page() {
       });
     }
 
-    /* ── Tagline ── */
-    gsap.fromTo("#tagline", { opacity: 0, y: 80 }, {
-      opacity: 1, y: 0, duration: 1.2, ease: "power3.out",
-      scrollTrigger: { trigger: "#tagline", start: "top 85%" },
-    });
-    gsap.fromTo("#tagline-sub", { opacity: 0, y: 40 }, {
-      opacity: 1, y: 0, duration: 1, delay: 0.2, ease: "power3.out",
-      scrollTrigger: { trigger: "#tagline-sub", start: "top 85%" },
-    });
-
-    /* ── Feature cards ── */
-    gsap.fromTo(".feature-card", { opacity: 0, y: 80 }, {
-      opacity: 1, y: 0, duration: 1, stagger: 0.2, ease: "power3.out",
-      scrollTrigger: { trigger: "#features-grid", start: "top 80%" },
-    });
-
-    /* ── Stats ── */
-    gsap.fromTo(".stat-item", { opacity: 0, y: 40 }, {
-      opacity: 1, y: 0, duration: 0.8, stagger: 0.12, ease: "power3.out",
-      scrollTrigger: { trigger: "#stats-section", start: "top 75%" },
-    });
-
-    /* ── Color heading ── */
-    gsap.fromTo("#color-heading", { opacity: 0, x: -60 }, {
-      opacity: 1, x: 0, duration: 1.2, ease: "power3.out",
-      scrollTrigger: { trigger: "#color-heading", start: "top 80%" },
-    });
-
-    /* ── Spec rows ── */
-    gsap.fromTo(".spec-row", { opacity: 0, x: -30 }, {
-      opacity: 1, x: 0, duration: 0.6, stagger: 0.06, ease: "power2.out",
-      scrollTrigger: { trigger: "#specs-list", start: "top 80%" },
-    });
-
-    /* ── CTA ── */
-    gsap.fromTo("#cta-inner", { opacity: 0, scale: 0.95 }, {
-      opacity: 1, scale: 1, duration: 1.2, ease: "power3.out",
-      scrollTrigger: { trigger: "#cta-section", start: "top 75%" },
-    });
+    /* ── Scroll-triggered entrance animations (desktop only) ── */
+    if (!isMobileDevice) {
+      gsap.fromTo("#tagline", { opacity: 0, y: 80 }, {
+        opacity: 1, y: 0, duration: 1.2, ease: "power3.out",
+        scrollTrigger: { trigger: "#tagline", start: "top 85%" },
+      });
+      gsap.fromTo("#tagline-sub", { opacity: 0, y: 40 }, {
+        opacity: 1, y: 0, duration: 1, delay: 0.2, ease: "power3.out",
+        scrollTrigger: { trigger: "#tagline-sub", start: "top 85%" },
+      });
+      gsap.fromTo(".feature-card", { opacity: 0, y: 80 }, {
+        opacity: 1, y: 0, duration: 1, stagger: 0.2, ease: "power3.out",
+        scrollTrigger: { trigger: "#features-grid", start: "top 80%" },
+      });
+      gsap.fromTo(".stat-item", { opacity: 0, y: 40 }, {
+        opacity: 1, y: 0, duration: 0.8, stagger: 0.12, ease: "power3.out",
+        scrollTrigger: { trigger: "#stats-section", start: "top 75%" },
+      });
+      gsap.fromTo("#color-heading", { opacity: 0, x: -60 }, {
+        opacity: 1, x: 0, duration: 1.2, ease: "power3.out",
+        scrollTrigger: { trigger: "#color-heading", start: "top 80%" },
+      });
+      gsap.fromTo(".spec-row", { opacity: 0, x: -30 }, {
+        opacity: 1, x: 0, duration: 0.6, stagger: 0.06, ease: "power2.out",
+        scrollTrigger: { trigger: "#specs-list", start: "top 80%" },
+      });
+      gsap.fromTo("#cta-inner", { opacity: 0, scale: 0.95 }, {
+        opacity: 1, scale: 1, duration: 1.2, ease: "power3.out",
+        scrollTrigger: { trigger: "#cta-section", start: "top 75%" },
+      });
+    }
 
     /* Nav background */
     const onScroll = () => setNavSolid(window.scrollY > 80);
